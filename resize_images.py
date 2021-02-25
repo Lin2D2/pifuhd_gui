@@ -6,10 +6,10 @@ from PIL import Image
 
 def converte(image_path):
     try:
-        os.mkdir(os.path.join(image_path, "converted"))
+        os.mkdir(os.path.join(image_path, "tmp/converted"))
     except FileExistsError:
         pass
-    for pngfile in glob.glob(f'{image_path}/*.png'):
+    for pngfile in glob.glob(f'{image_path}/*.png') + glob.glob(f'{image_path}/*.jpg'):
         width_wanted = 2048
         height_wanted = 2048
         if os.path.basename(pngfile).find("_converted") == -1:
@@ -37,8 +37,8 @@ def converte(image_path):
                 img.resize((int(picture_width), int(picture_height)), Image.ADAPTIVE)
                 width, height = img.size
                 print(f'resized {os.path.basename(pngfile)} to {width}x{height}')
-                img.save(os.path.join(image_path,
-                                      f'converted/{os.path.basename(pngfile).replace(".png", "")}-converted-{width}x{height}.png'))
+                img.save(os.path.join(image_path,f'''tmp/converted/{os.path.basename(pngfile)
+                                      .replace(".png", "").replace(".jpg", "")}-converted-{width}x{height}.png'''))
             except Exception as e:
                 print(e)
 

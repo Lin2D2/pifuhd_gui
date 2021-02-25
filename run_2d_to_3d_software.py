@@ -1,6 +1,10 @@
 import os
+import glob
+
+import pygame
 
 import pifuhd.apps.modified_simple_test as simple_test
+from prepare_images import Prepare_Image
 
 
 def main():
@@ -10,11 +14,11 @@ def main():
     input_value = input("y for get_rect, s = skip: ")
     if input_value == "y":
         print("prepare images")
-        # TODO run prepare_images here
-
-        # print("run openpose")
-        # os.system(
-        #     f'openpose --image_dir {os.path.join(dir_path, os.path.join(input_path, "tmp/converted"))} --write_json {os.path.join(dir_path, os.path.join(input_path, "tmp/converted"))} --render_pose 0 --display 0 --net_resolution "512x512"')
+        try:
+            Prepare_Image(dir_path, input_path)
+            pygame.quit()
+        except SystemExit:
+            pygame.quit()
 
     print(f"Done. Enter ress to continue")
     confirmend = False
@@ -31,6 +35,10 @@ def main():
     print(f"{start}working on {input_path} with ress: {render_ress}{end}")
     simple_test.run(render_ress, os.path.join(dir_path, os.path.join(input_path, "tmp/render_ready")),
                     os.path.join(dir_path, output_path))
+    for filename in glob.glob(os.path.join(
+            dir_path, os.path.join(input_path, "tmp/render_ready")) + '/*.png'):
+        os.remove(filename)
+        os.remove(f'{filename.replace(".png", "")}_keypoints.json')
 
 
 if __name__ == "__main__":
@@ -39,23 +47,23 @@ if __name__ == "__main__":
     except FileExistsError:
         pass
     try:
-        os.mkdir("/Input/tmp")
+        os.mkdir("Input/tmp")
     except FileExistsError:
         pass
     try:
-        os.mkdir("/Input/tmp/converted")
+        os.mkdir("Input/tmp/converted")
     except FileExistsError:
         pass
     try:
-        os.mkdir("/Input/tmp/render_ready")
+        os.mkdir("Input/tmp/render_ready")
     except FileExistsError:
         pass
     try:
-        os.mkdir("/Input/tmp/ress_down")
+        os.mkdir("Input/tmp/ress_down")
     except FileExistsError:
         pass
     try:
-        os.mkdir("/Input/tmp/ress_up")
+        os.mkdir("Input/tmp/ress_up")
     except FileExistsError:
         pass
     try:

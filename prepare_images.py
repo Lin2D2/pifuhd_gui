@@ -5,6 +5,7 @@ import os
 import cv2
 import numpy as np
 import pygame
+import shutil
 
 from resize_images import converte
 
@@ -127,7 +128,7 @@ class Button:
         return False
 
 
-class Window:
+class Prepare_Image:
     def __init__(self, dir_path, input_path):
         self.dir_path = dir_path
         self.input_path = input_path
@@ -146,7 +147,7 @@ class Window:
 
         # Render ress
         self.render_resolution = [128, 256, 512, 1024]
-        self.current_render_resolution = self.render_resolution[0]
+        self.render_resolution_index = 0
 
         # lock
         self.screen_clock = pygame.time.Clock()
@@ -155,7 +156,6 @@ class Window:
         self.SW = self.screen.get_width()
         self.SH = self.screen.get_height()
         self.background_color = self.color_black
-        self.image_path = "./images"
 
         self.image_index = 0
         self.images = []
@@ -198,10 +198,9 @@ class Window:
         pygame.display.update()
 
         # setup up
-        # TODO comment in
-        # converte(os.path.join(dir_path, input_path))
-        #
-        # self.run_opempose("tmp/converted", 128)  # min ca. 128 / max ca. 1024
+        converte(os.path.join(dir_path, input_path))
+
+        self.run_opempose("tmp/converted", self.render_resolution[self.render_resolution_index])
         self.images, self.image_paths = self.read_draw_keypoints("tmp/converted")
 
         self.draw_update()
@@ -230,25 +229,63 @@ class Window:
         path = os.path.join(self.dir_path, os.path.join(self.input_path, path))
         os.system(f'openpose --image_dir {path} --write_json {path} --net_resolution "{ress}x{ress}" --render_pose 0 --display 0')
 
+    def move_file(self, origin, target_folder):
+        target = os.path.join(self.dir_path, os.path.join(self.input_path, target_folder))
+        try:
+            shutil.move(origin, target)
+            shutil.move(f'{origin.replace(".png", "")}_keypoints.json', target)
+        except shutil.Error:
+            # TODO stuck in loop if programm crashes and the image is duplicated
+            pass
+
     def increment(self):
         if self.image_index < len(self.images) - 1:
             self.image_index = self.image_index + 1
             self.draw_update()
         else:
             # TODO not quit
-            pygame.quit()
+            if len(os.listdir(os.path.join(self.dir_path, os.path.join(self.input_path, 'tmp/ress_down')))) == 0:
+                if len(os.listdir(os.path.join(self.dir_path, os.path.join(self.input_path, 'tmp/ress_up')))) == 0:
+                    print("Done")
+                    pygame.quit()
+                    pygame.quit()
+                else:
+                    print("ress up")
+                    self.image_index = 0
+                    self.screen.fill(self.background_color)
+                    pygame.display.update()
+                    self.render_resolution_index = self.render_resolution_index + 1
+                    self.run_opempose("tmp/ress_up", self.render_resolution[self.render_resolution_index])
+                    for filename in glob.glob(os.path.join(
+                            self.dir_path, os.path.join(self.input_path, "tmp/ress_up")) + '/*.png'):
+                        self.move_file(filename, "tmp/converted")
+                    self.images, self.image_paths = self.read_draw_keypoints("tmp/converted")
+                    self.draw_update()
+            else:
+                print("ress down")
+                self.image_index = 0
+                self.screen.fill(self.background_color)
+                pygame.display.update()
+                self.render_resolution_index = self.render_resolution_index - 1
+                self.run_opempose("tmp/ress_down", self.render_resolution[self.render_resolution_index])
+                for filename in glob.glob(os.path.join(self.dir_path, os.path.join(self.input_path, "tmp/ress_down")) + '/*.png'):
+                    self.move_file(filename, "tmp/converted")
+                self.images, self.image_paths = self.read_draw_keypoints("tmp/converted")
+                self.draw_update()
 
     def confirm(self):
-
+        self.move_file(self.image_paths[self.image_index], "tmp/render_ready")
         self.increment()
 
     def add(self):
-
-        self.increment()
+        if self.render_resolution_index < len(self.render_resolution) - 1:
+            self.move_file(self.image_paths[self.image_index], "tmp/ress_up")
+            self.increment()
 
     def subtract(self):
-
-        self.increment()
+        if self.render_resolution_index > 0:
+            self.move_file(self.image_paths[self.image_index], "tmp/ress_down")
+            self.increment()
 
     def set_button_locations_dimensions(self):
         self.confirm_button_dimension = (self.SW / 8, self.SH / 18)
@@ -284,7 +321,7 @@ class Window:
         if resize:
             self.set_button_locations_dimensions()
 
-        self.render_res_button.text = self.render_resolution
+        self.render_res_button.text = str(self.render_resolution[self.render_resolution_index])
 
         # draw image
         height, width, channels = img.shape
@@ -310,9 +347,11 @@ class Window:
         image_rect.center = (int(self.SW / 2), int(self.SH / 2))
 
         self.screen.blit(picture, image_rect)
-        self.subt_button.draw(self.screen)
+        if self.render_resolution_index > 0:
+            self.subt_button.draw(self.screen)
         self.confirm_button.draw(self.screen)
-        self.add_button.draw(self.screen)
+        if self.render_resolution_index < len(self.render_resolution) - 1:
+            self.add_button.draw(self.screen)
         self.render_res_button.draw(self.screen)
 
         pygame.display.update()
@@ -361,4 +400,4 @@ class Window:
 
 
 if __name__ == '__main__':
-    Window(os.path.dirname(os.path.realpath(__file__)), "Input")
+    Prepare_Image(os.path.dirname(os.path.realpath(__file__)), "Input")
