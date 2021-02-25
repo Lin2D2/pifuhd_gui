@@ -15,26 +15,18 @@ def converte(image_path):
         if os.path.basename(pngfile).find("_converted") == -1:
             print(f'trying resizing {os.path.basename(pngfile)} to {width_wanted}x{height_wanted}')
             img = Image.open(pngfile)
-            width, height = img.size
             try:
-                if width_wanted > height_wanted:
-                    with_fac = width_wanted / width
-                    height_res = with_fac * height
-                    picture_width = width_wanted
-                    picture_height = height_res
-                    if picture_height > picture_height > height_wanted:
-                        height_fac = height_wanted / height
-                        width_res = height_fac * width
-                        height_res = height_fac * height
-                        picture_width = width_res
-                        picture_height = height_res
+                if img.size[0] > img.size[1]:
+                    baseheight = height_wanted
+                    wpercent = (baseheight / float(img.size[0]))
+                    wsize = int((float(img.size[1]) * float(wpercent)))
+                    img = img.resize((baseheight, wsize), Image.ADAPTIVE)
                 else:
-                    height_fac = height_wanted / height
-                    width_res = height_fac * width
-                    picture_width = width_res
-                    picture_height = height_wanted
+                    basewidth = width_wanted
+                    wpercent = (basewidth / float(img.size[1]))
+                    hsize = int((float(img.size[0]) * float(wpercent)))
+                    img = img.resize((hsize, basewidth), Image.ADAPTIVE)
 
-                img.resize((int(picture_width), int(picture_height)), Image.ADAPTIVE)
                 width, height = img.size
                 print(f'resized {os.path.basename(pngfile)} to {width}x{height}')
                 img.save(os.path.join(image_path,f'''tmp/converted/{os.path.basename(pngfile)
@@ -44,4 +36,4 @@ def converte(image_path):
 
 
 if __name__ == '__main__':
-    converte("/home/space/Documents/Pictures/final_selection/forth_filter_masked/files")
+    converte("/home/space/Documents/pifuhd_gui/Input")
