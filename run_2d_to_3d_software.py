@@ -27,21 +27,18 @@ def converte(image_path):
 
 def main():
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    paths = ["/home/space/Documents/Pictures/final_selection/forth_filter_masked"]
+    input_path = "Input"
+    output_path = "Input"
     input_value = input("y for get_rect, s = skip: ")
     if input_value == "y":
-        print(paths)
-        for path in paths:
-            # get_rect.run_get_rect(os.path.join(dir_path, os.path.join(path, "files")))
-            print("convert images")
-            converte(os.path.join(path, "files"))
-            print("run openpose")
-            os.system(
-                f'openpose --image_dir {os.path.join(dir_path, os.path.join(path, "files/converted"))} --write_json {os.path.join(dir_path, os.path.join(path, "files/converted"))} --render_pose 0 --display 0 --net_resolution "512x512"')
+        print("convert images")
+        converte(input_path)
+        print("run openpose")
+        os.system(
+            f'openpose --image_dir {os.path.join(dir_path, os.path.join(input_path, "converted"))} --write_json {os.path.join(dir_path, os.path.join(input_path, "converted"))} --render_pose 0 --display 0 --net_resolution "512x512"')
 
     print(f"Done. Enter ress to continue")
     confirmend = False
-
     while not confirmend:
         _input = input("enter ress: ")
         try:
@@ -49,14 +46,21 @@ def main():
             confirmend = True
         except Exception as err:
             print(err)
-    for path in paths:
-        start = '\033[94m'
-        end = '\033[0m'
-        print("\n")
-        print(f"{start}working on {path} with ress: {render_ress}{end}")
-        simple_test.run(render_ress, os.path.join(dir_path, os.path.join(path, "files/converted")),
-                        os.path.join(dir_path, os.path.join(path, "results")))
+    start = '\033[94m'
+    end = '\033[0m'
+    print("\n")
+    print(f"{start}working on {input_path} with ress: {render_ress}{end}")
+    simple_test.run(render_ress, os.path.join(dir_path, os.path.join(input_path, "converted")),
+                    os.path.join(dir_path, output_path, "results"))
 
 
 if __name__ == "__main__":
+    try:
+        os.mkdir("Input")
+    except FileExistsError:
+        pass
+    try:
+        os.mkdir("Output")
+    except FileExistsError:
+        pass
     main()
