@@ -1,9 +1,20 @@
 import glob
 import json
+import os
 
 import cv2
 import numpy as np
 import pygame
+
+from resize_images import converte
+
+
+def run_opempose(di_path, in_path, ress):
+    print("running openpose")
+    path = os.path.join(di_path, os.path.join(in_path, "converted"))
+    print(path)
+    os.system(f'openpose --image_dir {path} --write_json {path} --net_resolution "{ress}x{ress}" --render_pose 0 --display 0')
+    print("done running openpose")
 
 
 def draw_image(img, peopl):
@@ -187,6 +198,19 @@ class Window:
         except pygame.error as error:
             print(f'error: {error}')
 
+    def next(self):
+        if self.image_index < len(self.images) - 1:
+            self.image_index = self.image_index + 1
+            self.draw_update()
+        else:
+            pygame.quit()
+
+    def add(self):
+        pass
+
+    def subtract(self):
+        pass
+
     def set_button_locations_dimensions(self):
         self.next_button_dimension = (self.SW / 12, self.SH / 18)
         self.next_button_location = (int(self.SW / 2 - self.next_button_dimension[0] / 2),
@@ -275,8 +299,7 @@ class Window:
                             and
                             self.next_button_location[1] <= mouse[1] <= self.next_button_location[1] +
                             self.next_button_dimension[1]):
-                        self.image_index = self.image_index + 1
-                        self.draw_update()
+                        self.next()
 
                     # add button
                     elif (self.add_button_location[0] <= mouse[0] <= self.add_button_location[0] +
@@ -314,11 +337,14 @@ def read_draw_keypoints(image_list):
 
 
 if __name__ == '__main__':
-    image_folder_path = "/home/space/Documents/Pictures/final_selection/forth_filter_masked/files/converted"
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    input_path = "Input"
+    converte(os.path.join(dir_path, input_path))
+    run_opempose(dir_path, input_path, 128)  # min ca. 128 / max ca. 1024
     images = []
-    for filename in glob.glob(image_folder_path + '/*.jpg'):  # assuming jpg
+    for filename in glob.glob(os.path.join(dir_path, os.path.join(input_path, "converted")) + '/*.jpg'):  # assuming jpg
         images.append(filename)
-    for filename in glob.glob(image_folder_path + '/*.png'):  # assuming png
+    for filename in glob.glob(os.path.join(dir_path, os.path.join(input_path, "converted")) + '/*.png'):  # assuming png
         images.append(filename)
     result = read_draw_keypoints(images)
     window = Window(result)

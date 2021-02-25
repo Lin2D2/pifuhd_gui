@@ -28,11 +28,12 @@ def converte(image_path):
 def main():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     input_path = "Input"
-    output_path = "Input"
+    output_path = "Output"
     input_value = input("y for get_rect, s = skip: ")
     if input_value == "y":
         print("convert images")
         converte(input_path)
+        # run prepare_images here
         print("run openpose")
         os.system(
             f'openpose --image_dir {os.path.join(dir_path, os.path.join(input_path, "converted"))} --write_json {os.path.join(dir_path, os.path.join(input_path, "converted"))} --render_pose 0 --display 0 --net_resolution "512x512"')
