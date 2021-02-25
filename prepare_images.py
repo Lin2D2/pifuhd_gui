@@ -9,14 +9,6 @@ import pygame
 from resize_images import converte
 
 
-def run_opempose(di_path, in_path, ress):
-    print("running openpose")
-    path = os.path.join(di_path, os.path.join(in_path, "converted"))
-    print(path)
-    os.system(f'openpose --image_dir {path} --write_json {path} --net_resolution "{ress}x{ress}" --render_pose 0 --display 0')
-    print("done running openpose")
-
-
 def draw_image(img, peopl):
     points_raw_raw = peopl["pose_keypoints_2d"]
     points_raw = np.array(points_raw_raw).reshape(-1, 3)
@@ -136,7 +128,10 @@ class Button:
 
 
 class Window:
-    def __init__(self, images):
+    def __init__(self, dir_path, input_path):
+        self.dir_path = dir_path
+        self.input_path = input_path
+
         pygame.init()
         # screen
         self.screen = pygame.display.set_mode([1280, 720], pygame.RESIZABLE)
@@ -149,6 +144,10 @@ class Window:
         self.color_green = pygame.Color("green")
         self.color_yellow = pygame.Color("yellow")
 
+        # Render ress
+        self.render_resolution = [128, 256, 512, 1024]
+        self.current_render_resolution = self.render_resolution[0]
+
         # lock
         self.screen_clock = pygame.time.Clock()
         self.tick_rate = 15
@@ -159,38 +158,51 @@ class Window:
         self.image_path = "./images"
 
         self.image_index = 0
-        self.images = images
+        self.images = []
+        self.image_paths = []
 
         self.margin = 10
 
         # buttons
-        self.next_button_dimension = (self.SW / 12, self.SH / 18)
-        self.next_button_location = (int(self.SW / 2 - self.next_button_dimension[0] / 2),
-                                     int(self.SH - self.next_button_dimension[1] - self.margin))
-        self.next_button = Button(self.color_white, self.next_button_location[0], self.next_button_location[1],
-                                  self.next_button_dimension[0], self.next_button_dimension[1], self.SW / 21.6, "next")
+        self.confirm_button_dimension = (self.SW / 8, self.SH / 18)
+        self.confirm_button_location = (int(self.SW / 2 - self.confirm_button_dimension[0] / 2),
+                                        int(self.SH - self.confirm_button_dimension[1] - self.margin))
+        self.confirm_button = Button(self.color_white, self.confirm_button_location[0], self.confirm_button_location[1],
+                                     self.confirm_button_dimension[0], self.confirm_button_dimension[1], self.SW / 21.6, "confirm")
 
-        self.subtract_button_dimension = (self.SW / 12, self.SH / 18)
-        self.subtract_button_location = (
-            int(self.SW / 2 - self.subtract_button_dimension[0] - self.next_button_dimension[0] /
-                2 - self.margin), int(self.SH - self.subtract_button_dimension[1] - self.margin))
-        self.subtract_button = Button(self.color_red, self.subtract_button_location[0],
-                                      self.subtract_button_location[1],
-                                      self.subtract_button_dimension[0], self.subtract_button_dimension[1],
-                                      self.SW / 21.6, "-")
+        self.subt_button_dimension = (self.SW / 12, self.SH / 18)
+        self.subt_button_location = (
+            int(self.SW / 2 - self.subt_button_dimension[0] - self.confirm_button_dimension[0] / 2 - self.margin),
+            int(self.SH - self.subt_button_dimension[1] - self.margin))
+        self.subt_button = Button(self.color_red, self.subt_button_location[0],
+                                  self.subt_button_location[1],
+                                  self.subt_button_dimension[0], self.subt_button_dimension[1],
+                                  self.SW / 21.6, "-")
 
         self.add_button_dimension = (self.SW / 12, self.SH / 18)
-        self.add_button_location = (int(self.SW / 2 - self.add_button_dimension[0] +
-                                        self.next_button_dimension[0] / 2 + self.next_button_dimension[0] +
-                                        self.margin), int(self.SH - self.add_button_dimension[1] - self.margin))
+        self.add_button_location = (
+            int(self.SW / 2 + self.confirm_button_dimension[0] / 2 + self.margin),
+            int(self.SH - self.add_button_dimension[1] - self.margin))
         self.add_button = Button(self.color_green, self.add_button_location[0], self.add_button_location[1],
                                  self.add_button_dimension[0], self.add_button_dimension[1], self.SW / 21.6, "+")
 
-        self.image_res_dimension = (self.SW / 6, self.SH / 18)
-        self.image_res_location = (int(self.SW - self.image_res_dimension[0] - self.margin),
-                                   int(self.SH - self.image_res_dimension[1] - self.margin))
-        self.image_res = Button(self.darkslate_gray, self.image_res_location[0], self.image_res_location[1],
-                                self.image_res_dimension[0], self.image_res_dimension[1], self.SW / 21.6, "")
+        self.render_res_dimension = (self.SW / 6, self.SH / 18)
+        self.render_res_location = (int(self.SW - self.render_res_dimension[0] - self.margin),
+                                    int(self.SH - self.render_res_dimension[1] - self.margin))
+        self.render_res_button = Button(self.darkslate_gray, self.render_res_location[0], self.render_res_location[1],
+                                        self.render_res_dimension[0], self.render_res_dimension[1], self.SW / 21.6, "")
+
+        # start screen
+        self.screen.fill(self.background_color)
+
+        pygame.display.update()
+
+        # setup up
+        # TODO comment in
+        # converte(os.path.join(dir_path, input_path))
+        #
+        # self.run_opempose("tmp/converted", 128)  # min ca. 128 / max ca. 1024
+        self.images, self.image_paths = self.read_draw_keypoints("tmp/converted")
 
         self.draw_update()
         try:
@@ -198,45 +210,72 @@ class Window:
         except pygame.error as error:
             print(f'error: {error}')
 
-    def next(self):
+    def read_draw_keypoints(self, path):
+        image_list = []
+        for filename in glob.glob(os.path.join(self.dir_path, os.path.join(self.input_path, path)) + '/*.png'):
+            image_list.append(filename)
+        image_result = []
+        for imgage in image_list:
+            img = cv2.imread(imgage, cv2.IMREAD_COLOR)
+            with open(f'{imgage.replace(".png", "")}_keypoints.json') as file:
+                data = json.load(file)
+                people = data["people"]
+
+            for peopl in people:
+                img = draw_image(img, peopl)
+            image_result.append(img)
+        return image_result, image_list
+
+    def run_opempose(self, path, ress):
+        path = os.path.join(self.dir_path, os.path.join(self.input_path, path))
+        os.system(f'openpose --image_dir {path} --write_json {path} --net_resolution "{ress}x{ress}" --render_pose 0 --display 0')
+
+    def increment(self):
         if self.image_index < len(self.images) - 1:
             self.image_index = self.image_index + 1
             self.draw_update()
         else:
+            # TODO not quit
             pygame.quit()
 
+    def confirm(self):
+
+        self.increment()
+
     def add(self):
-        pass
+
+        self.increment()
 
     def subtract(self):
-        pass
+
+        self.increment()
 
     def set_button_locations_dimensions(self):
-        self.next_button_dimension = (self.SW / 12, self.SH / 18)
-        self.next_button_location = (int(self.SW / 2 - self.next_button_dimension[0] / 2),
-                                     int(self.SH - self.next_button_dimension[1] - self.margin))
-        self.next_button = Button(self.color_white, self.next_button_location[0], self.next_button_location[1],
-                                  self.next_button_dimension[0], self.next_button_dimension[1], self.SW / 21.6, "next")
-        self.subtract_button_dimension = (self.SW / 12, self.SH / 18)
-        self.subtract_button_location = (
-            int(self.SW / 2 - self.subtract_button_dimension[0] - self.next_button_dimension[0] /
-                2 - self.margin), int(self.SH - self.subtract_button_dimension[1] - self.margin))
-        self.subtract_button = Button(self.color_red, self.subtract_button_location[0],
-                                      self.subtract_button_location[1],
-                                      self.subtract_button_dimension[0], self.subtract_button_dimension[1],
-                                      self.SW / 21.6, "-")
+        self.confirm_button_dimension = (self.SW / 8, self.SH / 18)
+        self.confirm_button_location = (int(self.SW / 2 - self.confirm_button_dimension[0] / 2),
+                                        int(self.SH - self.confirm_button_dimension[1] - self.margin))
+        self.confirm_button = Button(self.color_white, self.confirm_button_location[0], self.confirm_button_location[1],
+                                     self.confirm_button_dimension[0], self.confirm_button_dimension[1], self.SW / 21.6,
+                                     "confirm")
+        self.subt_button_dimension = (self.SW / 12, self.SH / 18)
+        self.subt_button_location = (
+            int(self.SW / 2 - self.subt_button_dimension[0] - self.confirm_button_dimension[0] / 2 - self.margin),
+            int(self.SH - self.subt_button_dimension[1] - self.margin))
+        self.subt_button = Button(self.color_green, self.subt_button_location[0],
+                                  self.subt_button_location[1],
+                                  self.subt_button_dimension[0], self.subt_button_dimension[1],
+                                  self.SW / 21.6, "-")
         self.add_button_dimension = (self.SW / 12, self.SH / 18)
-        self.add_button_location = (int(self.SW / 2 - self.add_button_dimension[0] +
-                                        self.next_button_dimension[0] / 2 + self.next_button_dimension[0] +
-                                        self.margin), int(self.SH - self.add_button_dimension[1] - self.margin))
+        self.add_button_location = (
+            int(self.SW / 2 + self.confirm_button_dimension[0] / 2 + self.margin),
+            int(self.SH - self.add_button_dimension[1] - self.margin))
         self.add_button = Button(self.color_green, self.add_button_location[0], self.add_button_location[1],
                                  self.add_button_dimension[0], self.add_button_dimension[1], self.SW / 21.6, "+")
-        self.image_res_dimension = (self.SW / 6, self.SH / 18)
-        self.image_res_location = (int(self.SW - self.image_res_dimension[0] - self.margin),
-                                   int(self.SH - self.image_res_dimension[1] - self.margin))
-        self.image_res = Button(self.darkslate_gray, self.image_res_location[0], self.image_res_location[1],
-                                self.image_res_dimension[0], self.image_res_dimension[1], self.SW / 21.6,
-                                self.image_res.text)
+        self.render_res_dimension = (self.SW / 6, self.SH / 18)
+        self.render_res_location = (int(self.SW - self.render_res_dimension[0] - self.margin),
+                                    int(self.SH - self.render_res_dimension[1] - self.margin))
+        self.render_res_button = Button(self.darkslate_gray, self.render_res_location[0], self.render_res_location[1],
+                                        self.render_res_dimension[0], self.render_res_dimension[1], self.SW / 21.6, self.render_res_button.text)
 
     def draw_update(self, resize=False):
         img = self.images[self.image_index]
@@ -245,7 +284,7 @@ class Window:
         if resize:
             self.set_button_locations_dimensions()
 
-        self.image_res.text = ""
+        self.render_res_button.text = self.render_resolution
 
         # draw image
         height, width, channels = img.shape
@@ -271,10 +310,10 @@ class Window:
         image_rect.center = (int(self.SW / 2), int(self.SH / 2))
 
         self.screen.blit(picture, image_rect)
-        self.subtract_button.draw(self.screen)
+        self.subt_button.draw(self.screen)
+        self.confirm_button.draw(self.screen)
         self.add_button.draw(self.screen)
-        self.next_button.draw(self.screen)
-        self.image_res.draw(self.screen)
+        self.render_res_button.draw(self.screen)
 
         pygame.display.update()
 
@@ -293,28 +332,27 @@ class Window:
                     if event.key == pygame.K_ESCAPE:
                         pygame.quit()
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # next button
-                    if (self.next_button_location[0] <= mouse[0] <= self.next_button_location[0] +
-                            self.next_button_dimension[0]
+                    # confirm button
+                    if (self.confirm_button_location[0] <= mouse[0] <= self.confirm_button_location[0] +
+                            self.confirm_button_dimension[0]
                             and
-                            self.next_button_location[1] <= mouse[1] <= self.next_button_location[1] +
-                            self.next_button_dimension[1]):
-                        self.next()
-
+                            self.confirm_button_location[1] <= mouse[1] <= self.confirm_button_location[1] +
+                            self.confirm_button_dimension[1]):
+                        self.confirm()
                     # add button
                     elif (self.add_button_location[0] <= mouse[0] <= self.add_button_location[0] +
                           self.add_button_dimension[0]
                           and
                           self.add_button_location[1] <= mouse[1] <= self.add_button_location[1] +
                           self.add_button_dimension[1]):
-                        pass
-                    # subtract button
-                    elif (self.subtract_button_location[0] <= mouse[0] <= self.subtract_button_location[0] +
-                          self.subtract_button_dimension[0]
+                        self.add()
+                    # subt button
+                    elif (self.subt_button_location[0] <= mouse[0] <= self.subt_button_location[0] +
+                          self.subt_button_dimension[0]
                           and
-                          self.subtract_button_location[1] <= mouse[1] <= self.subtract_button_location[1] +
-                          self.subtract_button_dimension[1]):
-                        pass
+                          self.subt_button_location[1] <= mouse[1] <= self.subt_button_location[1] +
+                          self.subt_button_dimension[1]):
+                        self.subtract()
                 elif event.type == pygame.VIDEORESIZE:
                     self.SW, self.SH = pygame.display.get_window_size()
                     self.draw_update(resize=True)
@@ -322,29 +360,5 @@ class Window:
             self.screen_clock.tick(self.tick_rate)
 
 
-def read_draw_keypoints(image_list):
-    image_result = []
-    for imgage in image_list:
-        img = cv2.imread(imgage, cv2.IMREAD_COLOR)
-        with open(f'{imgage.replace(".png", "")}_keypoints.json') as file:
-            data = json.load(file)
-            people = data["people"]
-
-        for peopl in people:
-            img = draw_image(img, peopl)
-        image_result.append(img)
-    return image_result
-
-
 if __name__ == '__main__':
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    input_path = "Input"
-    converte(os.path.join(dir_path, input_path))
-    run_opempose(dir_path, input_path, 128)  # min ca. 128 / max ca. 1024
-    images = []
-    for filename in glob.glob(os.path.join(dir_path, os.path.join(input_path, "converted")) + '/*.jpg'):  # assuming jpg
-        images.append(filename)
-    for filename in glob.glob(os.path.join(dir_path, os.path.join(input_path, "converted")) + '/*.png'):  # assuming png
-        images.append(filename)
-    result = read_draw_keypoints(images)
-    window = Window(result)
+    Window(os.path.dirname(os.path.realpath(__file__)), "Input")
