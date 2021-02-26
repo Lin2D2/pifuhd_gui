@@ -128,7 +128,7 @@ class Button:
         return False
 
 
-class Prepare_Image:
+class PrepareImage:
     def __init__(self, dir_path, input_path):
         self.dir_path = dir_path
         self.input_path = input_path
@@ -163,7 +163,7 @@ class Prepare_Image:
 
         self.margin = 10
 
-        # buttons
+        # buttons / TextFields
         self.confirm_button_dimension = (self.SW / 8, self.SH / 18)
         self.confirm_button_location = (int(self.SW / 2 - self.confirm_button_dimension[0] / 2),
                                         int(self.SH - self.confirm_button_dimension[1] - self.margin))
@@ -192,9 +192,16 @@ class Prepare_Image:
         self.render_res_button = Button(self.darkslate_gray, self.render_res_location[0], self.render_res_location[1],
                                         self.render_res_dimension[0], self.render_res_dimension[1], self.SW / 21.6, "")
 
+        self.center_text_dimension = (self.SW / 6, self.SH / 18)
+        self.center_text_location = (int(self.SW / 2 - self.center_text_dimension[0] / 2),
+                                     int(self.SH / 2 - self.center_text_dimension[1] / 2))
+        self.center_text_button = Button(self.color_yellow, self.center_text_location[0], self.center_text_location[1],
+                                         self.center_text_dimension[0], self.center_text_dimension[1], self.SW / 21.6,
+                                         "Loading..")
+
         # start screen
         self.screen.fill(self.background_color)
-
+        self.center_text_button.draw(self.screen)
         pygame.display.update()
 
         # setup up
@@ -253,6 +260,7 @@ class Prepare_Image:
                     print("ress up")
                     self.image_index = 0
                     self.screen.fill(self.background_color)
+                    self.center_text_button.draw(self.screen)
                     pygame.display.update()
                     self.render_resolution_index = self.render_resolution_index + 1
                     self.run_opempose("tmp/ress_up", self.render_resolution[self.render_resolution_index])
@@ -265,6 +273,7 @@ class Prepare_Image:
                 print("ress down")
                 self.image_index = 0
                 self.screen.fill(self.background_color)
+                self.center_text_button.draw(self.screen)
                 pygame.display.update()
                 self.render_resolution_index = self.render_resolution_index - 1
                 self.run_opempose("tmp/ress_down", self.render_resolution[self.render_resolution_index])
@@ -313,6 +322,12 @@ class Prepare_Image:
                                     int(self.SH - self.render_res_dimension[1] - self.margin))
         self.render_res_button = Button(self.darkslate_gray, self.render_res_location[0], self.render_res_location[1],
                                         self.render_res_dimension[0], self.render_res_dimension[1], self.SW / 21.6, self.render_res_button.text)
+        self.center_text_dimension = (self.SW / 6, self.SH / 18)
+        self.center_text_location = (int(self.SW / 2 - self.center_text_dimension[0] / 2),
+                                     int(self.SH / 2 - self.center_text_dimension[1] / 2))
+        self.center_text_button = Button(self.color_yellow, self.center_text_location[0], self.center_text_location[1],
+                                         self.center_text_dimension[0], self.center_text_dimension[1], self.SW / 21.6,
+                                         "Loading...")
 
     def draw_update(self, resize=False):
         img = self.images[self.image_index]
@@ -400,4 +415,4 @@ class Prepare_Image:
 
 
 if __name__ == '__main__':
-    Prepare_Image(os.path.dirname(os.path.realpath(__file__)), "Input")
+    PrepareImage(os.path.dirname(os.path.realpath(__file__)), "Input")

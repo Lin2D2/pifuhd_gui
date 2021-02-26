@@ -4,7 +4,7 @@ import glob
 import pygame
 
 import pifuhd.apps.modified_simple_test as simple_test
-from prepare_images import Prepare_Image
+from prepare_images import PrepareImage
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
     if input_value == "y":
         print("prepare images")
         try:
-            Prepare_Image(dir_path, input_path)
+            PrepareImage(dir_path, input_path)
             pygame.quit()
         except SystemExit:
             pygame.quit()
