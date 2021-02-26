@@ -1,6 +1,7 @@
 import glob
 import json
 import os
+import subprocess
 
 import cv2
 import numpy as np
@@ -128,14 +129,45 @@ class Button:
         return False
 
 
+class TextBox:
+    def __init__(self, color, x, y, fontsize, text=''):
+        self.color = color
+        self.x = x
+        self.y = y
+        self.fontsize = fontsize
+        self.text = text
+
+    def draw(self, win):
+        font = pygame.font.SysFont("Corbel", int(self.fontsize))
+        words = [word.split(' ') for word in self.text.splitlines()]  # 2D array where each row is a list of words.
+        space = font.size(' ')[0]  # The width of a space.
+        max_width, max_height = win.get_size()
+        x, y = (self.x, self.y)
+        for line in words:
+            for word in line:
+                word_surface = font.render(word, False, self.color)
+                word_width, word_height = word_surface.get_size()
+                if x + word_width >= max_width:
+                    x = self.x  # Reset the x.
+                    y += word_height  # Start on new row.
+                win.blit(word_surface, (x, y))
+                x += word_width + space
+            x = self.x  # Reset the x.
+            y += word_height  # Start on new row.
+
+
 class PrepareImage:
     def __init__(self, dir_path, input_path):
         self.dir_path = dir_path
         self.input_path = input_path
 
+        self.external_process = None
+
         pygame.init()
+        self.running = True
+
         # screen
-        self.screen = pygame.display.set_mode([1280, 720], pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode([1280, 720])
 
         # Color
         self.color_red = pygame.Color("red")
@@ -151,7 +183,7 @@ class PrepareImage:
 
         # lock
         self.screen_clock = pygame.time.Clock()
-        self.tick_rate = 15
+        self.tick_rate = 30
 
         self.SW = self.screen.get_width()
         self.SH = self.screen.get_height()
@@ -168,7 +200,8 @@ class PrepareImage:
         self.confirm_button_location = (int(self.SW / 2 - self.confirm_button_dimension[0] / 2),
                                         int(self.SH - self.confirm_button_dimension[1] - self.margin))
         self.confirm_button = Button(self.color_white, self.confirm_button_location[0], self.confirm_button_location[1],
-                                     self.confirm_button_dimension[0], self.confirm_button_dimension[1], self.SW / 21.6, "confirm")
+                                     self.confirm_button_dimension[0], self.confirm_button_dimension[1], self.SW / 21.6,
+                                     "confirm")
 
         self.subt_button_dimension = (self.SW / 12, self.SH / 18)
         self.subt_button_location = (
@@ -192,25 +225,17 @@ class PrepareImage:
         self.render_res_button = Button(self.darkslate_gray, self.render_res_location[0], self.render_res_location[1],
                                         self.render_res_dimension[0], self.render_res_dimension[1], self.SW / 21.6, "")
 
-        self.center_text_dimension = (self.SW / 6, self.SH / 18)
-        self.center_text_location = (int(self.SW / 2 - self.center_text_dimension[0] / 2),
-                                     int(self.SH / 2 - self.center_text_dimension[1] / 2))
-        self.center_text_button = Button(self.color_yellow, self.center_text_location[0], self.center_text_location[1],
-                                         self.center_text_dimension[0], self.center_text_dimension[1], self.SW / 21.6,
-                                         "Loading..")
+        self.center_text_location = (int(self.SW / 50), int(self.SH / 50))
+        self.center_text_button = TextBox(self.color_yellow, self.center_text_location[0], self.center_text_location[1],
+                                          self.SW / 30, "Loading...")
 
-        # start screen
+    def start(self):
         self.screen.fill(self.background_color)
         self.center_text_button.draw(self.screen)
         pygame.display.update()
 
-        # setup up
-        converte(os.path.join(dir_path, input_path))
-
+        converte(os.path.join(self.dir_path, self.input_path))
         self.run_opempose("tmp/converted", self.render_resolution[self.render_resolution_index])
-        self.images, self.image_paths = self.read_draw_keypoints("tmp/converted")
-
-        self.draw_update()
         try:
             self.loop()
         except pygame.error as error:
@@ -234,7 +259,9 @@ class PrepareImage:
 
     def run_opempose(self, path, ress):
         path = os.path.join(self.dir_path, os.path.join(self.input_path, path))
-        os.system(f'openpose --image_dir {path} --write_json {path} --net_resolution "{ress}x{ress}" --render_pose 0 --display 0')
+        args = [f'openpose --image_dir {path} --write_json {path} --net_resolution "{ress}x{ress}" --render_pose {0} --display {0}']
+        self.external_process = subprocess.Popen(*args, shell=True, stdout=subprocess.PIPE)
+        self.external_process.name = "openpose"
 
     def move_file(self, origin, target_folder):
         target = os.path.join(self.dir_path, os.path.join(self.input_path, target_folder))
@@ -255,11 +282,11 @@ class PrepareImage:
                 if len(os.listdir(os.path.join(self.dir_path, os.path.join(self.input_path, 'tmp/ress_up')))) == 0:
                     print("Done")
                     pygame.quit()
-                    pygame.quit()
                 else:
                     print("ress up")
                     self.image_index = 0
                     self.screen.fill(self.background_color)
+                    self.center_text_button.text = "Loading..."
                     self.center_text_button.draw(self.screen)
                     pygame.display.update()
                     self.render_resolution_index = self.render_resolution_index + 1
@@ -273,11 +300,13 @@ class PrepareImage:
                 print("ress down")
                 self.image_index = 0
                 self.screen.fill(self.background_color)
+                self.center_text_button.text = "Loading..."
                 self.center_text_button.draw(self.screen)
                 pygame.display.update()
                 self.render_resolution_index = self.render_resolution_index - 1
                 self.run_opempose("tmp/ress_down", self.render_resolution[self.render_resolution_index])
-                for filename in glob.glob(os.path.join(self.dir_path, os.path.join(self.input_path, "tmp/ress_down")) + '/*.png'):
+                for filename in glob.glob(
+                        os.path.join(self.dir_path, os.path.join(self.input_path, "tmp/ress_down")) + '/*.png'):
                     self.move_file(filename, "tmp/converted")
                 self.images, self.image_paths = self.read_draw_keypoints("tmp/converted")
                 self.draw_update()
@@ -321,13 +350,11 @@ class PrepareImage:
         self.render_res_location = (int(self.SW - self.render_res_dimension[0] - self.margin),
                                     int(self.SH - self.render_res_dimension[1] - self.margin))
         self.render_res_button = Button(self.darkslate_gray, self.render_res_location[0], self.render_res_location[1],
-                                        self.render_res_dimension[0], self.render_res_dimension[1], self.SW / 21.6, self.render_res_button.text)
-        self.center_text_dimension = (self.SW / 6, self.SH / 18)
-        self.center_text_location = (int(self.SW / 2 - self.center_text_dimension[0] / 2),
-                                     int(self.SH / 2 - self.center_text_dimension[1] / 2))
-        self.center_text_button = Button(self.color_yellow, self.center_text_location[0], self.center_text_location[1],
-                                         self.center_text_dimension[0], self.center_text_dimension[1], self.SW / 21.6,
-                                         "Loading...")
+                                        self.render_res_dimension[0], self.render_res_dimension[1], self.SW / 21.6,
+                                        self.render_res_button.text)
+        self.center_text_location = (int(self.SW / 50), int(self.SH / 50))
+        self.center_text_button = TextBox(self.color_yellow, self.center_text_location[0], self.center_text_location[1],
+                                          self.SW / 30, self.center_text_button.text)
 
     def draw_update(self, resize=False):
         img = self.images[self.image_index]
@@ -372,47 +399,68 @@ class PrepareImage:
         pygame.display.update()
 
     def loop(self):
-        running = True
-
-        while running:
+        while self.running:
             # get mouse position
             mouse = pygame.mouse.get_pos()
 
             events = pygame.event.get()
             for event in events:
                 if event.type == pygame.QUIT:
+                    print("Quiting...")
+                    self.running = False
                     pygame.quit()
-                elif event.type == pygame.KEYDOWN:
+                if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
+                        print("Quiting...")
+                        self.running = False
                         pygame.quit()
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    # confirm button
-                    if (self.confirm_button_location[0] <= mouse[0] <= self.confirm_button_location[0] +
-                            self.confirm_button_dimension[0]
-                            and
-                            self.confirm_button_location[1] <= mouse[1] <= self.confirm_button_location[1] +
-                            self.confirm_button_dimension[1]):
-                        self.confirm()
-                    # add button
-                    elif (self.add_button_location[0] <= mouse[0] <= self.add_button_location[0] +
-                          self.add_button_dimension[0]
-                          and
-                          self.add_button_location[1] <= mouse[1] <= self.add_button_location[1] +
-                          self.add_button_dimension[1]):
-                        self.add()
-                    # subt button
-                    elif (self.subt_button_location[0] <= mouse[0] <= self.subt_button_location[0] +
-                          self.subt_button_dimension[0]
-                          and
-                          self.subt_button_location[1] <= mouse[1] <= self.subt_button_location[1] +
-                          self.subt_button_dimension[1]):
-                        self.subtract()
-                elif event.type == pygame.VIDEORESIZE:
+                if self.external_process is None:
+                    if event.type == pygame.MOUSEBUTTONDOWN:
+                        # confirm button
+                        if (self.confirm_button_location[0] <= mouse[0] <= self.confirm_button_location[0] +
+                                self.confirm_button_dimension[0]
+                                and
+                                self.confirm_button_location[1] <= mouse[1] <= self.confirm_button_location[1] +
+                                self.confirm_button_dimension[1]):
+                            self.confirm()
+                        # add button
+                        elif (self.add_button_location[0] <= mouse[0] <= self.add_button_location[0] +
+                              self.add_button_dimension[0]
+                              and
+                              self.add_button_location[1] <= mouse[1] <= self.add_button_location[1] +
+                              self.add_button_dimension[1]):
+                            self.add()
+                        # subt button
+                        elif (self.subt_button_location[0] <= mouse[0] <= self.subt_button_location[0] +
+                              self.subt_button_dimension[0]
+                              and
+                              self.subt_button_location[1] <= mouse[1] <= self.subt_button_location[1] +
+                              self.subt_button_dimension[1]):
+                            self.subtract()
+                if event.type == pygame.VIDEORESIZE:
                     self.SW, self.SH = pygame.display.get_window_size()
                     self.draw_update(resize=True)
+
+            if self.external_process is not None:
+                if self.external_process.poll() is None:
+                    output = self.external_process.stdout.readline().decode("utf-8")\
+                        .replace(". ", ".\n").replace("...\n", "...")
+                    if output != "" and output is not None:
+                        self.center_text_button.text = self.center_text_button.text + "\n" + output
+                        self.screen.fill(self.background_color)
+                        self.center_text_button.draw(self.screen)
+                        pygame.display.update()
+                if self.external_process.poll() is not None:
+                    self.external_process.kill()
+                    if self.external_process.name == "openpose":
+                        self.images, self.image_paths = self.read_draw_keypoints("tmp/converted")
+                        self.screen = pygame.display.set_mode([1280, 720], pygame.RESIZABLE)
+                    self.external_process = None
+                    self.draw_update()
+
             # tick
             self.screen_clock.tick(self.tick_rate)
 
 
 if __name__ == '__main__':
-    PrepareImage(os.path.dirname(os.path.realpath(__file__)), "Input")
+    PrepareImage(os.path.dirname(os.path.realpath(__file__)), "Input").start()

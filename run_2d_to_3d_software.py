@@ -1,8 +1,6 @@
 import os
 import glob
 
-import pygame
-
 import pifuhd.apps.modified_simple_test as simple_test
 from prepare_images import PrepareImage
 
@@ -13,12 +11,10 @@ def main():
     output_path = "Output"
     input_value = input("y for get_rect, s = skip: ")
     if input_value == "y":
-        print("prepare images")
-        try:
-            PrepareImage(dir_path, input_path)
-            pygame.quit()
-        except SystemExit:
-            pygame.quit()
+        print("PrepareImage running")
+        PrepareImage(dir_path, input_path).start()
+        print("PrepareImage done")
+        # TODO start rendering here?
 
     print(f"Done. Enter ress to continue")
     confirmend = False
