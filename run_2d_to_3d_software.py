@@ -29,8 +29,8 @@ def main():
     end = '\033[0m'
     print("\n")
     print(f"{start}working on {input_path} with ress: {render_ress}{end}")
-    simple_test.run(render_ress, os.path.join(dir_path, os.path.join(input_path, "tmp/render_ready")),
-                    os.path.join(dir_path, output_path))
+    simple_test.run(str(render_ress), os.path.join(dir_path, os.path.join(input_path, "tmp/render_ready")),
+                    os.path.join(dir_path, output_path), cpu=True)
     for filename in glob.glob(os.path.join(
             dir_path, os.path.join(input_path, "tmp/render_ready")) + '/*.png'):
         os.remove(filename)

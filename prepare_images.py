@@ -8,7 +8,7 @@ import numpy as np
 import pygame
 import shutil
 
-from resize_images import converte
+from prepare_images_utilities import prepare_images
 
 
 def draw_image(img, peopl):
@@ -115,7 +115,7 @@ class Button:
 
         if self.text != '':
             font = pygame.font.SysFont("Corbel", int(self.fontsize))
-            text = font.render(self.text, 1, (0, 0, 0))
+            text = font.render(self.text, True, (0, 0, 0))
             win.blit(text, (
                 self.x + (int(self.width / 2 - text.get_width() / 2)),
                 self.y + (int(self.height / 2 - text.get_height() / 2))))
@@ -178,7 +178,10 @@ class PrepareImage:
         self.color_yellow = pygame.Color("yellow")
 
         # Render ress
-        self.render_resolution = [128, 256, 512, 1024]
+        # self.render_resolution = [int(16/8), int(16/6), int(16/4), int(16/2),
+        #                           16*1, 16*2, 16*3, 16*4, 16*5, 16*6, 16*7, 16*8, 16*9, 16*10]
+        self.render_resolution = [16 * 1, 16 * 2, 16 * 3, 16 * 4, 16 * 5, 16 * 6, 16 * 7, 16 * 8, 16 * 9, 16 * 10]
+        # TODO auto skip res if no pose found
         self.render_resolution_index = 0
 
         # lock
@@ -234,7 +237,7 @@ class PrepareImage:
         self.center_text_button.draw(self.screen)
         pygame.display.update()
 
-        converte(os.path.join(self.dir_path, self.input_path))
+        prepare_images(os.path.join(self.dir_path, self.input_path))
         self.run_opempose("tmp/converted", self.render_resolution[self.render_resolution_index])
         try:
             self.loop()
@@ -247,14 +250,17 @@ class PrepareImage:
             image_list.append(filename)
         image_result = []
         for imgage in image_list:
-            img = cv2.imread(imgage, cv2.IMREAD_COLOR)
-            with open(f'{imgage.replace(".png", "")}_keypoints.json') as file:
-                data = json.load(file)
-                people = data["people"]
+            try:
+                img = cv2.imread(imgage, cv2.IMREAD_COLOR)
+                with open(f'{imgage.replace(".png", "")}_keypoints.json') as file:
+                    data = json.load(file)
+                    people = data["people"]
 
-            for peopl in people:
-                img = draw_image(img, peopl)
-            image_result.append(img)
+                for peopl in people:
+                    img = draw_image(img, peopl)
+                image_result.append(img)
+            except FileNotFoundError:
+                pass
         return image_result, image_list
 
     def run_opempose(self, path, ress):
